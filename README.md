@@ -1,2 +1,2 @@
-# lazy-persistent-trie
-A persistent trie with lazily evaluated updates and lock-free concurrent reads.
+# Lazy Persistent Trie
+A lazy persistent trie.
