@@ -72,7 +72,7 @@ object Main {
     while(i < txsize) {
       val k = rnd.nextInt(dbsize)
       val v = rnd.nextInt(1000000)
-      diff.putInPlace(k, v)
+      diff(k) = v
       keys(i) = k
       i += 1
     }

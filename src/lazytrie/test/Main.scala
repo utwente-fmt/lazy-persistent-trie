@@ -16,7 +16,7 @@ object Main {
     while(true) {
       val rnd = new Random()
       
-      var trie = Util.createIntMap(0, rnd.nextInt(5), 1 + rnd.nextInt(4))
+      var trie = Util.createIntMap(0, 1 + rnd.nextInt(4))
       var reference = Map[Int,Int]()
       
       for(_ <- 1 to 100) {
@@ -33,14 +33,14 @@ object Main {
             trie = trie.put(k, v)
             reference = reference + (k -> v)
             
-          // putInPlace(k, v)
+          // updateInPlace(k, v)
           case 1 => 
             val k = rnd.nextInt(size)
             val v = rnd.nextInt(1000000)
             operation = "putInPlace(" + k + ", " + v + ")"
             beforeTrie = trie.vmap(Some(_)) // Copies the tree
             beforeTrie.forceAll()
-            trie.putInPlace(k, v)
+            trie(k) = _ => Some(v)
             reference = reference + (k -> v)
             
           // remove(k)
@@ -100,12 +100,12 @@ object Main {
           case 9 => 
             operation = "updateDiff"
             var updates = Map[Int,Int]()
-            var diff = trie.emptyDiff
+            var diff = trie.emptyMap[Option[Int] => Option[Int]]
             for(i <- 1 to rnd.nextInt(100)) {
               val k = rnd.nextInt(size)
               val v = rnd.nextInt(1000000)
               updates += k -> v
-              diff.putInPlace(k, _ => Some(v))
+              diff(k) = (_ : Option[Int]) => Some(v)
             }
             trie = trie.update(diff)
             reference = reference ++ updates

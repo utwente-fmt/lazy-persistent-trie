@@ -4,24 +4,24 @@ import lazytrie.SmallIntKey
 import lazytrie.Map
 import java.util.concurrent.ThreadLocalRandom
 import lazytrie.StringKey
+import scala.reflect.ClassTag
 
 object Util {
-  def createIntMap(size : Int, leafWidth : Int = 0, branchWidth : Int = 5) = {
+  def createIntMap(size : Int, branchWidth : Int = 5) = {
     val rnd = ThreadLocalRandom.current()
-    val discr = new SmallIntKey(Math.ceil(Math.log(size) / Math.log(2)).toInt)
-    var map = Map[Int,Int](discr, leafWidth, branchWidth)
+    var map = Map.emptyInt[Int](size, branchWidth)
     for(i <- 0 to size - 1) {
-      map.putInPlace(i, rnd.nextInt(1000000))
+      map(i) = rnd.nextInt(1000000)
     }
     map
   }
   
-  def createStringMap(size : Int, leafWidth : Int = 0, branchWidth : Int = 5) = {
+  def createStringMap(size : Int, branchWidth : Int = 5) = {
     val rnd = ThreadLocalRandom.current()
-    val discr = new StringKey()
-    var map = Map[String,Int](discr, leafWidth, branchWidth)
+    val key = new StringKey()
+    var map = Map[String,Int](branchWidth)(key)
     for(i <- 0 to size - 1) {
-      map.putInPlace(i.toString, rnd.nextInt(1000000))
+      map(i.toString) = rnd.nextInt(1000000)
     }
     map
   }

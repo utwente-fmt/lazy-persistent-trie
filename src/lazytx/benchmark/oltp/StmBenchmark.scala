@@ -4,6 +4,8 @@ import java.util.concurrent.ThreadLocalRandom
 import scala.concurrent.stm.TMap
 import scala.concurrent.stm.atomic
 import lazytrie.test.Util
+import scala.concurrent.stm.TArray
+import scala.concurrent.stm.Ref
 
 object StmBenchmarkHelper {
   def create(dbsize : Int) : TMap[Int,Int] = {
@@ -22,6 +24,54 @@ object StmBenchmarkHelper {
   }
 }
 
+class StmHotspotBenchmark(normalCount : Int, hotspotCount : Int, hotspotSize : Int) extends SimpleBenchmark {
+  def workload(dbsize : Int) = {
+    val state = StmBenchmarkHelper.create(dbsize)
+    
+    () => {
+      val rnd = ThreadLocalRandom.current()
+      
+      atomic { implicit txn =>
+        var i = normalCount + hotspotCount
+        while(i > 0) {
+          i -= 1
+          val k = if(i < normalCount)
+            rnd.nextInt(dbsize - hotspotSize)
+          else
+            dbsize - hotspotSize + rnd.nextInt(hotspotSize)
+          
+          state(k) = state(k) + 1
+        }
+      }
+    }
+  }
+}
+
+class StmArrayHotspotBenchmark(normalCount : Int, hotspotCount : Int, hotspotSize : Int) extends SimpleBenchmark {
+  def workload(dbsize : Int) = {
+    val state = Array.ofDim[Ref[Int]](dbsize)
+    for(i <- 0 to state.length - 1)
+      state(i) = Ref(0)
+    
+    () => {
+      val rnd = ThreadLocalRandom.current()
+      
+      atomic { implicit txn =>
+        var i = normalCount + hotspotCount
+        while(i > 0) {
+          i -= 1
+          val k = if(i < normalCount)
+            rnd.nextInt(dbsize - hotspotSize)
+          else
+            dbsize - hotspotSize + rnd.nextInt(hotspotSize)
+          
+          state(k).set(state(k).get + 1)
+        }
+      }
+    }
+  }
+}
+
 class StmRandomAccessBenchmark extends RandomAccessBenchmark {
   def workload(dbsize : Int, txsize : Int, writeRatio : Double) = {
     val state = StmBenchmarkHelper.create(dbsize)
@@ -32,7 +82,8 @@ class StmRandomAccessBenchmark extends RandomAccessBenchmark {
         atomic { implicit txn =>
           var i = 0
           while(i < txsize) {
-            state.put(rnd.nextInt(dbsize), rnd.nextInt(10))
+            val k = rnd.nextInt(dbsize)
+            state.put(k, state(k) + 1)
             i += 1
           }
         }
@@ -42,6 +93,37 @@ class StmRandomAccessBenchmark extends RandomAccessBenchmark {
           var sum = 0
           while(i < txsize) {
             sum += state.get(rnd.nextInt(dbsize)).get
+            i += 1
+          }
+        } 
+      }
+    }
+  }
+}
+
+class StmArrayRandomAccessBenchmark extends RandomAccessBenchmark {
+  def workload(dbsize : Int, txsize : Int, writeRatio : Double) = {
+    val state = Array.ofDim[Ref[Int]](dbsize)
+    for(i <- 0 to state.length - 1)
+      state(i) = Ref(0)
+    
+    () => {
+      val rnd = ThreadLocalRandom.current()
+      if(rnd.nextDouble() < writeRatio) {
+        atomic { implicit txn =>
+          var i = 0
+          while(i < txsize) {
+            val k = rnd.nextInt(dbsize)
+            state(k) += 1
+            i += 1
+          }
+        }
+      } else {
+        atomic { implicit txn =>
+          var i = 0
+          var sum = 0
+          while(i < txsize) {
+            sum += state(rnd.nextInt(dbsize)).get
             i += 1
           }
         } 
@@ -89,7 +171,7 @@ class StmSequentialAccessBenchmark extends SequentialAccessBenchmark {
         atomic { implicit txn =>
           var i = 0
           while(i < txsize) {
-            state.put(start + i, rnd.nextInt(10))
+            state.put(start + i, state(start + 1) + 1)
             i += 1
           }
         }

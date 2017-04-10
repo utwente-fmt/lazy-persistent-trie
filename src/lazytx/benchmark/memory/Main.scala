@@ -7,7 +7,6 @@ import java.util.concurrent.ThreadLocalRandom
 import lazytrie.test.Util
 
 object Main {
-  val leafWidth = 0
   val branchWidth = 5
   
   def main(args : Array[String]) = {
@@ -15,14 +14,14 @@ object Main {
 
     // Warmup for timings
     for(i <- 0 to 100000)
-      Util.createIntMap(1000, leafWidth, branchWidth)
+      Util.createIntMap(1000, branchWidth)
     
     val runtime = Runtime.getRuntime
     for(size <- Array(1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000)) {
       System.gc()
       val before = runtime.totalMemory() - runtime.freeMemory()
       val begin = System.nanoTime()
-      val trie = Util.createIntMap(size, leafWidth, branchWidth)
+      val trie = Util.createIntMap(size, branchWidth)
       val end = System.nanoTime()
       System.gc()
       val after = runtime.totalMemory() - runtime.freeMemory()

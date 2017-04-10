@@ -25,7 +25,7 @@ abstract class Lazy[T] {
  * Wrapper for evaluated values
  * Note: value classes can directly implement Lazy[T] to avoid the overhead of this wrapper
  */
-class Value[T](value : T) extends Lazy[T] {
+case class Value[T](value : T) extends Lazy[T] {
   def get = value
   def evaluate = this
   def isEvaluated = true
@@ -34,7 +34,7 @@ class Value[T](value : T) extends Lazy[T] {
 /**
  * Delayed evaluation without memoization
  */
-class Delayed[T](f : () => T) extends Lazy[T] {
+case class Delayed[T](f : () => T) extends Lazy[T] {  
   def get = evaluate.get
   def evaluate = new Value(f())
   def isEvaluated = false
@@ -87,17 +87,15 @@ case class NonAtomicOptimisticThunk[T](var x : Lazy[T]) extends Lazy[T] {
  * Guarantees that the delayed procedure is evaluated only once
  * Guarantees that concurrent evaluation produces reference-equivalent results
  */
-case class LockingThunk[T](var x : Lazy[T]) extends Lazy[T] {
-  @volatile var f = x
-  x = null
-  
+case class LockingThunk[T](var f : Lazy[T]) extends Lazy[T] {
   def get = evaluate.get
   def evaluate = {
     if(f.isEvaluated)
       f
     else
       this.synchronized ({
-        f = f.evaluate
+        @volatile var temp = f.evaluate
+        f = temp
         f
       })
   }

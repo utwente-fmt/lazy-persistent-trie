@@ -1,0 +1,29 @@
+def User(name : String, password : String)
+def Auth(next_user_id : Int, users : Map[Int, User], users_by_name : Map[String, Int])
+def Auth.create_account(name, passwd)
+	if users_by_name.contains(name)
+		abort "Name already taken"
+	else
+		users[next_user_id] = User(name, passwd)
+		users_by_name[name] = next_user_id
+		next_user_id = add(next_user_id, 1)		
+def Auth.authenticate(name, passwd)
+	val id = users_by_name[name]
+	if neq(users[id].password, passwd)
+		abort "Invalid username / password combination"
+	return id
+
+def Quiz(open : Boolean, question_id : Int, correct_answers : Map[Int, String], user_answers : Map[Int, Map[Int, String]])
+def Quiz.set_answer(uid, answer)
+	if open
+		user_answers[uid][question_id] = answer
+	else
+		abort "Quiz not open"
+
+def Database(auth : Auth, quiz : Quiz)
+def Database.set_answer(name, passwd, answer)
+	uid <- auth.authenticate(name, passwd)
+	quiz.set_answer(uid, answer)
+		
+database = Database(Auth(0, empty, empty), Quiz(false, 0, empty, empty))
+		

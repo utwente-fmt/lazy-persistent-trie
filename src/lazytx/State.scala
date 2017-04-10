@@ -1,19 +1,25 @@
 package lazytx
 
-import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.util.Unsafe
+import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReadWriteLock
+import scala.reflect.ClassTag
+import java.util.concurrent.locks.LockSupport
+import lazytrie.Map
 
 object State {
   val offset = Unsafe.instance.objectFieldOffset(classOf[State[_]].getDeclaredField("state"));
 }
 
-class State[T](var state : T) {
+class State[T](var state : T) { 
   def get = state
   
   def read[U](f : T => U) = f(state)
   
   def update(f : T => T) : T = {
-    this.synchronized {
+    synchronized {
       state = f(state)
       state
     }
@@ -24,7 +30,7 @@ class State[T](var state : T) {
     state
   }
   
-  def updateNonblocking(f : T => T) : T = {
+  def updateNonBlocking(f : T => T) : T = {
     while(true) {
       val s = state
       val result = f(s)

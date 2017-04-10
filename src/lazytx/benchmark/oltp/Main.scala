@@ -1,58 +1,79 @@
 package lazytx.benchmark.oltp
 
 import java.lang.management.ManagementFactory
-import scala.collection.JavaConversions._
+
+import scala.collection.JavaConversions.asScalaBuffer
 
 object Main {
   val branchWidth = 5
   val leafWidth = 4
   
-  val time = 120000
-  val dbsize = 1000000
-  val threads = 8
-  val TXSIZES = Array(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288)
+  val time = 5000
+  //val dbsize = 100000
+  val threads = 1
+  val TXSIZES = Array(1, 4, 16, 64, 256, 1024, 4096, 8192)
   
   def main(args : Array[String]) : Unit = {
-    // Lazy
-    throughput(new LazyRandomAccessBenchmark(0, branchWidth, true), threads, time, dbsize, 0.1)
-    throughput(new LazyRandomAccessBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 0.1)
-    throughput(new LazyRandomAccessBenchmark(0, branchWidth, false), threads, time, dbsize, 0.1)
+    /*
+    val time = 5000
+    var dbsize = 1048576
     
-    throughput(new LazyRandomAccessBenchmark(0, branchWidth, true), threads, time, dbsize, 0.9)
-    throughput(new LazyRandomAccessBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 0.9)
-    throughput(new LazyRandomAccessBenchmark(0, branchWidth, false), threads, time, dbsize, 0.9)
+    val updateCount = 8
+    val keyReadCount = 2
+    val valueReadCount = 8
+    val constraintCount = 4
     
-    throughput(new LazySequentialAccessBenchmark(0, branchWidth, true), threads, time, dbsize, 0.1)
-    throughput(new LazySequentialAccessBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 0.1)
-    throughput(new LazySequentialAccessBenchmark(0, branchWidth, false), threads, time, dbsize, 0.1)
+    var approaches = Array(
+      new TwoPhaseLockingGenericBenchmark()
+    )
     
-    throughput(new LazySequentialAccessBenchmark(0, branchWidth, true), threads, time, dbsize, 0.9)
-    throughput(new LazySequentialAccessBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 0.9)
-    throughput(new LazySequentialAccessBenchmark(0, branchWidth, false), threads, time, dbsize, 0.9)
+    for(approach <- approaches) {
+      println(approach.getClass.getName())
+      for(threads <- Array(64, 1)) {
+        print(threads + " threads: ")
+        for(dbsize <- Array(1048576, 524288, 262144, 131072, 65536, 32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16)) {
+          val throughput = GenericBenchmark.run_gc(threads, time, approach, dbsize, updateCount, keyReadCount, valueReadCount, constraintCount)
+          print(throughput + " ")  
+        }
+        println
+      }
+    }
+    */
     
-    lazyRead(new LazyRandomReadBenchmark(0, branchWidth, true), threads, time, dbsize, 1)
-    lazyRead(new LazyRandomReadBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 1)
+    while(true) {
+      print("blocking: ")
+      for(threads <- Array(1, 2, 4, 8, 16, 32, 64, 128, 256)) {
+        print(simple_gc(new BlockingStateUpdate(), threads, 5000, 32).toLong)
+        print(" ")
+      }
+      println
+      
+      print("non-blocking: ")
+      for(threads <- Array(1, 2, 4, 8, 16, 32, 64, 128, 256)) {
+        print(simple_gc(new NonBlockingStateUpdate(), threads, 5000, 32).toLong)
+        print(" ")
+      }
+      println
+    }
+  }
+  
+  def simple(benchmark : SimpleBenchmark, threads : Int, time : Int, dbsize : Int) = {
+    Benchmark.benchmark(threads, time, benchmark.workload(dbsize))
+  }
+  
+  def simple_gc(benchmark : SimpleBenchmark, threads : Int, time : Int, dbsize : Int) = {
     
-    lazyRead(new LazyRandomReadBenchmark(0, branchWidth, true), threads, time, dbsize, 10)
-    lazyRead(new LazyRandomReadBenchmark(leafWidth, branchWidth, true), threads, time, dbsize, 10)
+    getGarbageCollectionTime()
+    val start = System.nanoTime()
+    val before = getGarbageCollectionTime
+    val r = Benchmark.benchmark(threads, time, benchmark.workload(dbsize))
+    val after = getGarbageCollectionTime
+    val end = System.nanoTime()
     
-    optimistic(new LazyOptimisticBenchmark(1, 0, branchWidth, true), threads, time, dbsize, 1)
-    optimistic(new LazyOptimisticBenchmark(1, leafWidth, branchWidth, true), threads, time, dbsize, 1)
-    optimistic(new LazyOptimisticBenchmark(1, 0, branchWidth, false), threads, time, dbsize, 1)
+    val elapsed = (end - start) / 1000000000.0
+    val gc = (after - before) / 1000.0 
     
-    optimistic(new LazyOptimisticBenchmark(1, 0, branchWidth, true), threads, time, dbsize, 10)
-    optimistic(new LazyOptimisticBenchmark(1, leafWidth, branchWidth, true), threads, time, dbsize, 10)
-    optimistic(new LazyOptimisticBenchmark(1, 0, branchWidth, false), threads, time, dbsize, 10)
-    
-    // ScalaSTM
-    throughput(new StmRandomAccessBenchmark, threads, time, dbsize, 0.1)
-    throughput(new StmRandomAccessBenchmark, threads, time, dbsize, 0.9)
-    throughput(new StmSequentialAccessBenchmark, threads, time, dbsize, 0.1)
-    throughput(new StmSequentialAccessBenchmark, threads, time, dbsize, 0.9)
-    lazyRead(new StmRandomReadWriteBenchmark(), threads, time, dbsize, 1)
-    lazyRead(new StmRandomReadWriteBenchmark(), threads, time, dbsize, 10)
-    optimistic(new StmOptimisticBenchmark(), threads, time, dbsize, 1)
-    optimistic(new StmOptimisticBenchmark(), threads, time, dbsize, 10)
+    r / (elapsed - gc) * elapsed
   }
   
   def throughput(benchmark : SimpleAccessBenchmark, threads : Int, time : Int, dbsize : Int, writeRatio : Double) = {
@@ -88,7 +109,7 @@ object Main {
     
     for(txsize <- TXSIZES) {
       val txs = Benchmark.benchmark(threads, time, benchmark.workload(dbsize, readsPerWrite, txsize))
-      print((txs * txsize * (readsPerWrite + 1)).toLong + " ms")
+      print((txs * txsize * (readsPerWrite + 1)).toLong + " ") 
     }
     println
   }
